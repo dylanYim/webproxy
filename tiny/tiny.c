@@ -16,7 +16,6 @@ void get_filetype(char *filename, char *filetype);
 void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
-void serve_just_head(int fd, char *filename, char *cgiargs);
 
 int main(int argc, char **argv) {
   int listenfd, connfd;
@@ -57,6 +56,7 @@ void doit(int fd)
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
+  printf("-----------------------It's UIR: %s", uri);
   if (strcasecmp(method, "GET") * strcasecmp(method, "HEAD")) {
     clienterror(fd, method, "501", "Not implemented",
                 "Tiny does not implement this method");
@@ -114,6 +114,7 @@ void read_requesthdrs(rio_t *rp)
   char buf[MAXLINE];
 
   Rio_readlineb(rp, buf, MAXLINE);
+  printf("%s", buf);
   while (strcmp(buf, "\r\n")) {
     Rio_readlineb(rp, buf, MAXLINE);
     printf("%s", buf);
