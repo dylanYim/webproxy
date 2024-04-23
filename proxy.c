@@ -15,18 +15,18 @@ typedef struct request_struct {
     char* header;
 }request;
 
-void proxy(int connfd, request *req);
+void *proxy(void *vargp);
 void read_requesthdrs(rio_t *rp, char* header, char* dest_host);
 void get_response_and_send_to_client(char *dest_host, char *dest_port, rio_t *rp, request *req, int connfd);
 void separate_host_and_port(const char *input, char *hostname, char *port);
 char* url_to_uri(char *url);
 
 int main(int argc, char **argv) {
-  int listnefd, connfd;
+  int listnefd, *connfdp;
   char client_hostname[MAXLINE], client_port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-  request req = {NULL,NULL,NULL, NULL};
+  pthread_t tid;
 
   if (argc != 2) {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
@@ -36,20 +36,23 @@ int main(int argc, char **argv) {
   listnefd = Open_listenfd(argv[1]);
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listnefd, (SA *) &clientaddr, &clientlen);
+    connfdp = Malloc(sizeof(int));
+    *connfdp = Accept(listnefd, (SA *) &clientaddr, &clientlen);
     Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE, client_port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", client_hostname, client_port);
-
-    proxy(connfd, &req);
-    Close(connfd);
+    Pthread_create(&tid, NULL, proxy, connfdp);
 
   }
 }
 
-void proxy(int connfd, request *req){
+void *proxy(void *vargp){
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], url[MAXLINE], header[MAXLINE], dest_host[MAXLINE], dest_hostname[MAXLINE], dest_port[MAXLINE];
   rio_t rio_client, rio_server;
+  request req = {NULL,NULL,NULL, NULL};
 
+  int connfd = *((int *) vargp);
+  Pthread_detach(pthread_self());
+  Free(vargp);
   /* Read request line and headers*/
   Rio_readinitb(&rio_client, connfd);
   Rio_readlineb(&rio_client, buf, MAXLINE);
@@ -58,14 +61,15 @@ void proxy(int connfd, request *req){
   read_requesthdrs(&rio_client, header, dest_host);
   sscanf(url_to_uri(url), "%s", uri);
 
-  req->method = method;
-  req->uri = uri;
-  req->header = header;
+  req.method = method;
+  req.uri = uri;
+  req.header = header;
 
   separate_host_and_port(dest_host, dest_hostname, dest_port);
 
-  get_response_and_send_to_client(dest_hostname, dest_port, &rio_server, req, connfd);
-
+  get_response_and_send_to_client(dest_hostname, dest_port, &rio_server, &req, connfd);
+  Close(connfd);
+  return NULL;
 }
 
 void read_requesthdrs(rio_t *rp, char* header, char* dest_host){
@@ -97,7 +101,6 @@ void get_response_and_send_to_client(char *dest_host, char *dest_port, rio_t *rp
   int clientfd;
   char request_buf[MAXLINE], response_header_buf[MAXLINE], header[MAXLINE], tmp1[MAXLINE], tmp2[MAXLINE];
   int body_size;
-
   clientfd = Open_clientfd(dest_host, dest_port);
 
   Rio_readinitb(rp, clientfd);
