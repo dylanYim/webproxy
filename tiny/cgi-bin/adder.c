@@ -5,7 +5,7 @@
 #include "../csapp.h"
 
 int main(void) {
-  char *buf, *p;
+  char *buf, *p, *method = getenv("METHOD");
   char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
   int n1 =0, n2 =0;
 
@@ -19,14 +19,7 @@ int main(void) {
     n2 = atoi(arg2);
   }
 
-  printf("Connection: close\r\n");
-  printf("Content-length: %d\r\n", (int) strlen(content));
-  printf("Content-type: text/html\r\n\r\n");
-  if (strcasecmp(getenv("METHOD"), "HEAD") == 0) {
-    fflush(stdout);
-    exit(0);
-  }
-  /* Make the response body*/
+  /* Make the response response*/
   sprintf(content, "QUERY_STRING =%s", buf);
   sprintf(content, "Welcome to add.com");
   sprintf(content, "%sTHE Internet additional portal. \r\n<p>", content);
@@ -35,8 +28,12 @@ int main(void) {
   sprintf(content, "%sThanks for visiting!\r\n", content);
 
   /* Generate the HTTP response */
-
-  printf("%s", content);
+  printf("Connection: close\r\n");
+  printf("Content-length: %d\r\n", (int) strlen(content));
+  printf("Content-type: text/html\r\n\r\n");
+  if (strcasecmp(method, "GET") == 0) {
+    printf("%s", content);
+  }
   fflush(stdout);
 
   exit(0);
